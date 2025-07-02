@@ -9,4 +9,4 @@ langchain-chroma
 tqdm
 python-dotenv
 tiktoken
-llama-index 
+#llama-index 

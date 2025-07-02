@@ -10,6 +10,15 @@ from langchain.prompts import ChatPromptTemplate
 
 
 def parse_input(input_value):
+    """
+    Parse input to extract URLs.
+
+    Args:
+        input_value (str): A single URL, a string of URLs, or a filename containing URLs (one per line).
+
+    Returns:
+        list[str]: List of URLs.
+    """
     # If input_value is a file and exists, read URLs from file
     if os.path.isfile(input_value):
         with open(input_value, 'r', encoding='utf-8') as f:
@@ -25,6 +34,15 @@ def parse_input(input_value):
 
 
 def fetch_webpages(urls):
+    """
+    Fetch the HTML content of each URL.
+
+    Args:
+        urls (list[str]): List of URLs to fetch.
+
+    Returns:
+        list[dict]: List of dicts with keys 'url', 'status_code', 'content', and optional 'error'.
+    """
     results = []
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -59,6 +77,16 @@ def fetch_webpages(urls):
 
 
 def extract_article_data(html, url):
+    """
+    Extract the headline and main content from the HTML of a news article.
+
+    Args:
+        html (str): HTML content of the page.
+        url (str): URL of the article.
+
+    Returns:
+        dict: Dictionary with 'url', 'headline', and 'content'.
+    """
     soup = BeautifulSoup(html, 'html.parser')
     # Headline: try <h1>
     headline = None
@@ -86,6 +114,12 @@ def extract_article_data(html, url):
 def summarize_and_identify_topics(article):
     """
     Use Langchain's ChatOpenAI to generate a summary and identify main topics for the article.
+
+    Args:
+        article (dict): Article dictionary with at least a 'content' field.
+
+    Returns:
+        tuple: (summary (str or None), topics (list[str] or None))
     """
     content = article.get('content')
     if not content:
@@ -124,6 +158,9 @@ def summarize_and_identify_topics(article):
 
 
 def main():
+    """
+    Main entry point for the news scraper CLI. Parses input, fetches articles, summarizes and identifies topics, and saves/merges results.
+    """
     parser = argparse.ArgumentParser(description='News Scraper Input Handler')
     parser.add_argument('input', type=str, help='A single URL, a string of URLs, or a filename containing URLs (one per line)')
     args = parser.parse_args()

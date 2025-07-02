@@ -44,4 +44,30 @@ After scraping and summarizing articles, you can perform semantic search using t
 python -m src.semantic_search "your search query"
 ```
 
-Replace `"your search query"` with your desired search phrase. The script will return the most relevant articles based on semantic similarity. 
+Replace `"your search query"` with your desired search phrase. The script will return the most relevant articles based on semantic similarity.
+
+## Environment Variables
+
+Create a `.env` file in your project root with your OpenAI API key:
+```
+OPENAI_API_KEY=your-openai-api-key-here
+```
+
+## Running Tests
+
+To run automated tests:
+```
+pytest
+```
+
+## Input File Example
+
+If using a file for URLs, create a `urls.txt` with one URL per line:
+```
+https://example.com/news1
+https://example.com/news2
+```
+
+## Output
+
+Scraped and summarized articles are saved in `articles.json` in the project root. 

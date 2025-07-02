@@ -8,6 +8,12 @@ load_dotenv(dotenv_path=env_path)
 
 # Set OpenAI API key
 def set_openai_api_key():
+    """
+    Load the OpenAI API key from environment variables and set it for the OpenAI library.
+
+    Raises:
+        ValueError: If OPENAI_API_KEY is not found in environment variables.
+    """
     api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
         raise ValueError('OPENAI_API_KEY not found in environment variables.')
