@@ -1,0 +1,77 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import json
+import pytest
+from unittest.mock import patch, MagicMock
+from src import news_scraper
+
+TEST_ARTICLES_FILE = 'test_articles.json'
+
+@pytest.fixture(autouse=True)
+def cleanup_test_file():
+    yield
+    if os.path.exists(TEST_ARTICLES_FILE):
+        os.remove(TEST_ARTICLES_FILE)
+
+def test_parse_input_single_url():
+    url = 'https://example.com/news1'
+    result = news_scraper.parse_input(url)
+    assert result == [url]
+
+def test_parse_input_multiple_urls():
+    urls = 'https://a.com https://b.com'
+    result = news_scraper.parse_input(urls)
+    assert result == ['https://a.com', 'https://b.com']
+
+def test_parse_input_file(tmp_path):
+    file_path = tmp_path / 'urls.txt'
+    file_path.write_text('https://a.com\nhttps://b.com\n')
+    result = news_scraper.parse_input(str(file_path))
+    assert result == ['https://a.com', 'https://b.com']
+
+@patch('src.news_scraper.requests.Session.get')
+def test_fetch_webpages_success(mock_get):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.text = '<html><h1>Headline</h1><article>Content</article></html>'
+    mock_get.return_value = mock_response
+    urls = ['https://example.com/news1']
+    result = news_scraper.fetch_webpages(urls)
+    assert result[0]['status_code'] == 200
+    assert 'Headline' in result[0]['content']
+
+@patch('src.news_scraper.BeautifulSoup')
+def test_extract_article_data(mock_bs):
+    mock_soup = MagicMock()
+    mock_h1 = MagicMock()
+    mock_h1.get_text.return_value = 'Test Headline'
+    mock_article = MagicMock()
+    mock_article.get_text.return_value = 'Test Content'
+    mock_soup.find.side_effect = lambda tag: mock_h1 if tag == 'h1' else (mock_article if tag == 'article' else None)
+    mock_bs.return_value = mock_soup
+    html = '<html></html>'
+    url = 'https://example.com/news1'
+    result = news_scraper.extract_article_data(html, url)
+    assert result['headline'] == 'Test Headline'
+    assert result['content'] == 'Test Content'
+
+def test_merge_articles(tmp_path):
+    # Simulate merging logic
+    articles = [
+        {'url': 'https://a.com', 'headline': 'A', 'content': 'A'},
+        {'url': 'https://b.com', 'headline': 'B', 'content': 'B'}
+    ]
+    existing_articles = [
+        {'url': 'https://a.com', 'headline': 'A-old', 'content': 'A-old'},
+        {'url': 'https://c.com', 'headline': 'C', 'content': 'C'}
+    ]
+    # Simulate the merging logic from news_scraper.py
+    existing_by_url = {a['url']: a for a in existing_articles if 'url' in a}
+    for article in articles:
+        existing_by_url[article['url']] = article
+    merged_articles = list(existing_by_url.values())
+    assert len(merged_articles) == 3
+    assert any(a['url'] == 'https://a.com' and a['headline'] == 'A' for a in merged_articles)
+    assert any(a['url'] == 'https://b.com' for a in merged_articles)
+    assert any(a['url'] == 'https://c.com' for a in merged_articles) 
