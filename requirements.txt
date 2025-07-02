@@ -3,4 +3,10 @@ beautifulsoup4
 openai
 chromadb
 langchain
-tqdm 
+langchain-community
+langchain-openai
+langchain-chroma
+tqdm
+python-dotenv
+tiktoken
+llama-index 

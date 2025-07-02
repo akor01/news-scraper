@@ -1,0 +1,14 @@
+import os
+from dotenv import load_dotenv
+import openai
+
+# Load environment variables from .env file
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path=env_path)
+
+# Set OpenAI API key
+def set_openai_api_key():
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError('OPENAI_API_KEY not found in environment variables.')
+    openai.api_key = api_key 

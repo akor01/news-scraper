@@ -4,6 +4,9 @@ import requests
 from bs4 import BeautifulSoup
 import json
 from urllib.parse import urljoin
+from src.config import set_openai_api_key
+from langchain_openai import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
 
 
 def parse_input(input_value):
@@ -80,11 +83,52 @@ def extract_article_data(html, url):
     }
 
 
+def summarize_and_identify_topics(article):
+    """
+    Use Langchain's ChatOpenAI to generate a summary and identify main topics for the article.
+    """
+    content = article.get('content')
+    if not content:
+        return None, None
+    try:
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.5)
+        # Summarization
+        summary_prompt = ChatPromptTemplate.from_template(
+            """
+            Summarize the following news article in 2-4 sentences, focusing on the key points:
+            {article_text}
+            """
+        )
+        summary_chain = summary_prompt | llm
+        summary_resp = summary_chain.invoke({"article_text": content})
+        summary = summary_resp.content.strip() if isinstance(summary_resp.content, str) else str(summary_resp.content)
+        # Topic identification
+        topics_prompt = ChatPromptTemplate.from_template(
+            """
+            List 3-5 main topics or keywords that best describe the following news article:
+            {article_text}
+            """
+        )
+        topics_chain = topics_prompt | llm
+        topics_resp = topics_chain.invoke({"article_text": content})
+        topics_raw = topics_resp.content.strip() if isinstance(topics_resp.content, str) else str(topics_resp.content)
+        # Parse topics (split by line or comma)
+        if '\n' in topics_raw:
+            topics = [t.strip('- ').strip() for t in topics_raw.split('\n') if t.strip()]
+        else:
+            topics = [t.strip() for t in topics_raw.split(',') if t.strip()]
+        return summary, topics
+    except Exception as e:
+        print(f"Langchain LLM error: {e}")
+        return None, None
+
+
 def main():
     parser = argparse.ArgumentParser(description='News Scraper Input Handler')
     parser.add_argument('input', type=str, help='A single URL, a string of URLs, or a filename containing URLs (one per line)')
     args = parser.parse_args()
 
+    set_openai_api_key()
     urls = parse_input(args.input)
     print('Parsed URLs:')
     for url in urls:
@@ -94,14 +138,35 @@ def main():
     for page in fetched:
         if page.get('content'):
             article_data = extract_article_data(page['content'], page['url'])
+            summary, topics = summarize_and_identify_topics(article_data)
+            article_data['summary'] = summary
+            article_data['topics'] = topics
             articles.append(article_data)
     print('\nExtracted Articles:')
     print(json.dumps(articles, indent=2, ensure_ascii=False))
     # Save to JSON file
     output_file = 'articles.json'
+
+    # Load existing articles if the file exists
+    if os.path.exists(output_file):
+        with open(output_file, 'r', encoding='utf-8') as f:
+            try:
+                existing_articles = json.load(f)
+            except Exception:
+                existing_articles = []
+    else:
+        existing_articles = []
+
+    # Create a dict for fast lookup by URL
+    existing_by_url = {a['url']: a for a in existing_articles if 'url' in a}
+    for article in articles:
+        existing_by_url[article['url']] = article  # update or add
+
+    # Save merged articles
+    merged_articles = list(existing_by_url.values())
     with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(articles, f, ensure_ascii=False, indent=2)
-    print(f'\nSaved {len(articles)} articles to {output_file}')
+        json.dump(merged_articles, f, ensure_ascii=False, indent=2)
+    print(f'\nSaved {len(merged_articles)} articles to {output_file}')
 
 if __name__ == '__main__':
     main() 

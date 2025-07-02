@@ -24,4 +24,24 @@ A Python project to scrape news articles from URLs, summarize them, identify top
 ## Features
 - Scrape news articles from URLs
 - Summarize articles and extract topics using GenAI
-- Store and search articles semantically using a vector database 
+- Store and search articles semantically using a vector database
+
+## How to Run
+
+From the project root, use the following command:
+
+```
+python -m src.news_scraper "<url or urls.txt>"
+```
+
+This ensures the src package is recognized and all imports work correctly.
+
+## Semantic Search Usage
+
+After scraping and summarizing articles, you can perform semantic search using the following command from the project root:
+
+```
+python -m src.semantic_search "your search query"
+```
+
+Replace `"your search query"` with your desired search phrase. The script will return the most relevant articles based on semantic similarity. 
