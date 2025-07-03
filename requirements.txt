@@ -7,6 +7,9 @@ langchain-community
 langchain-openai
 langchain-chroma
 tqdm
+colorama
+tabulate
 python-dotenv
 tiktoken
+pytest
 #llama-index 

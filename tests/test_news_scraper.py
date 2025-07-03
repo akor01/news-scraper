@@ -3,7 +3,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import json
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 from src import news_scraper
 
 TEST_ARTICLES_FILE = 'test_articles.json'
@@ -74,4 +74,33 @@ def test_merge_articles(tmp_path):
     assert len(merged_articles) == 3
     assert any(a['url'] == 'https://a.com' and a['headline'] == 'A' for a in merged_articles)
     assert any(a['url'] == 'https://b.com' for a in merged_articles)
-    assert any(a['url'] == 'https://c.com' for a in merged_articles) 
+    assert any(a['url'] == 'https://c.com' for a in merged_articles)
+
+def test_skip_scraping_existing_urls(monkeypatch, tmp_path):
+    # Simulate articles.json with one URL
+    articles_file = tmp_path / 'articles.json'
+    articles_file.write_text(json.dumps([
+        {'url': 'https://a.com', 'headline': 'A', 'content': 'A'}
+    ]))
+    # Change working directory so 'articles.json' resolves to our test file
+    monkeypatch.chdir(tmp_path)
+    # Patch parse_input to return the same URL
+    monkeypatch.setattr(news_scraper, 'parse_input', lambda x: ['https://a.com'])
+    # Patch fetch_webpages to track calls
+    called = {'fetch': False}
+    def fake_fetch_webpages(urls):
+        called['fetch'] = True
+        return []
+    monkeypatch.setattr(news_scraper, 'fetch_webpages', fake_fetch_webpages)
+    # Patch set_openai_api_key to do nothing
+    monkeypatch.setattr(news_scraper, 'set_openai_api_key', lambda: None)
+    # Patch argparse to avoid CLI
+    class Args:
+        input = 'dummy'
+        output = 'articles.json'
+        force = False
+    monkeypatch.setattr(news_scraper.argparse, 'ArgumentParser', lambda *a, **k: MagicMock(parse_args=lambda: Args()))
+    # Run main
+    news_scraper.main()
+    # Assert fetch_webpages was not called
+    assert not called['fetch'] 

@@ -35,4 +35,19 @@ def test_semantic_search(mock_embeddings, mock_chroma, sample_articles):
     mock_vs.similarity_search.return_value = [MagicMock(metadata={'headline': 'A', 'url': 'https://a.com', 'summary': 'Apple news', 'topics': 'fruit, food'})]
     result = semantic_search.semantic_search(mock_vs, 'apple', 1)
     assert len(result) == 1
-    assert result[0].metadata['headline'] == 'A' 
+    assert result[0].metadata['headline'] == 'A'
+
+@patch('src.semantic_search.Chroma')
+def test_skip_adding_existing_urls_to_vectorstore(mock_chroma, sample_articles):
+    # Mock vectorstore with one URL already present
+    mock_vs = MagicMock()
+    mock_vs.get.return_value = {'metadatas': [{'url': 'https://a.com'}]}
+    mock_vs.add_documents = MagicMock()
+    mock_chroma.return_value = mock_vs
+    embeddings = MagicMock()
+    docs = semantic_search.build_documents(sample_articles)
+    # Call build_or_load_vectorstore
+    semantic_search.build_or_load_vectorstore(docs, embeddings)
+    # Only the new URL ('https://b.com') should be added
+    added_docs = [doc for doc in docs if doc.metadata['url'] == 'https://b.com']
+    mock_vs.add_documents.assert_called_once_with(added_docs) 

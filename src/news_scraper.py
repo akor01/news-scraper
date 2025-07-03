@@ -7,6 +7,12 @@ from urllib.parse import urljoin
 from src.config import set_openai_api_key
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
+from tqdm import tqdm
+from colorama import Fore, Style, init as colorama_init
+from tabulate import tabulate
+import re
+
+colorama_init(autoreset=True)
 
 
 def parse_input(input_value):
@@ -139,18 +145,18 @@ def summarize_and_identify_topics(article):
         # Topic identification
         topics_prompt = ChatPromptTemplate.from_template(
             """
-            List 3-5 main topics or keywords that best describe the following news article:
+            List 3-5 main topics or keywords that best describe the following news article. Return them as a plain, comma-separated list with NO numbers, bullets, or extra formatting:
             {article_text}
             """
         )
         topics_chain = topics_prompt | llm
         topics_resp = topics_chain.invoke({"article_text": content})
         topics_raw = topics_resp.content.strip() if isinstance(topics_resp.content, str) else str(topics_resp.content)
-        # Parse topics (split by line or comma)
+        # Parse topics (split by line or comma), remove leading numbers/bullets
         if '\n' in topics_raw:
-            topics = [t.strip('- ').strip() for t in topics_raw.split('\n') if t.strip()]
+            topics = [re.sub(r'^\s*\d+[\).\-\s]*', '', t).strip() for t in topics_raw.split('\n') if t.strip()]
         else:
-            topics = [t.strip() for t in topics_raw.split(',') if t.strip()]
+            topics = [re.sub(r'^\s*\d+[\).\-\s]*', '', t).strip() for t in topics_raw.split(',') if t.strip()]
         return summary, topics
     except Exception as e:
         print(f"Langchain LLM error: {e}")
@@ -163,36 +169,69 @@ def main():
     """
     parser = argparse.ArgumentParser(description='News Scraper Input Handler')
     parser.add_argument('input', type=str, help='A single URL, a string of URLs, or a filename containing URLs (one per line)')
+    parser.add_argument('--output', type=str, default='articles.json', help='Output JSON file (default: articles.json)')
+    parser.add_argument('--force', action='store_true', help='Force re-scraping even if URLs exist in the output file')
     args = parser.parse_args()
 
     set_openai_api_key()
     urls = parse_input(args.input)
-    print('Parsed URLs:')
+    if not urls:
+        print(Fore.RED + 'No valid URLs provided. Exiting.' + Style.RESET_ALL)
+        return
+    print(Fore.CYAN + 'Parsed URLs:' + Style.RESET_ALL)
     for url in urls:
         print(url)
-    fetched = fetch_webpages(urls)
-    articles = []
-    for page in fetched:
-        if page.get('content'):
-            article_data = extract_article_data(page['content'], page['url'])
-            summary, topics = summarize_and_identify_topics(article_data)
-            article_data['summary'] = summary
-            article_data['topics'] = topics
-            articles.append(article_data)
-    print('\nExtracted Articles:')
-    print(json.dumps(articles, indent=2, ensure_ascii=False))
-    # Save to JSON file
-    output_file = 'articles.json'
 
+    output_file = args.output
     # Load existing articles if the file exists
     if os.path.exists(output_file):
-        with open(output_file, 'r', encoding='utf-8') as f:
-            try:
+        try:
+            with open(output_file, 'r', encoding='utf-8') as f:
                 existing_articles = json.load(f)
-            except Exception:
-                existing_articles = []
+        except Exception as e:
+            print(Fore.RED + f'Error loading {output_file}: {e}. Starting with empty articles.' + Style.RESET_ALL)
+            existing_articles = []
     else:
         existing_articles = []
+
+    # Collect URLs already present
+    existing_urls = {a['url'] for a in existing_articles if 'url' in a}
+    # Filter out URLs that are already present, unless --force is used
+    if args.force:
+        new_urls = urls
+    else:
+        new_urls = [url for url in urls if url not in existing_urls]
+    if not new_urls:
+        print(Fore.YELLOW + f'All provided URLs are already present in {output_file}. Nothing to scrape.' + Style.RESET_ALL)
+        return
+    print(Fore.CYAN + 'New URLs to fetch:' + Style.RESET_ALL)
+    for url in new_urls:
+        print(url)
+
+    fetched = []
+    print(Fore.CYAN + '\nFetching articles...' + Style.RESET_ALL)
+    for page in tqdm(fetch_webpages(new_urls), total=len(new_urls), desc='Fetching', ncols=80):
+        fetched.append(page)
+    articles = []
+    print(Fore.CYAN + '\nProcessing articles (summarization & topics)...' + Style.RESET_ALL)
+    summary_table = []
+    for page in tqdm(fetched, total=len(fetched), desc='Processing', ncols=80):
+        status = ''
+        if page.get('content'):
+            try:
+                article_data = extract_article_data(page['content'], page['url'])
+                summary, topics = summarize_and_identify_topics(article_data)
+                article_data['summary'] = summary
+                article_data['topics'] = topics
+                articles.append(article_data)
+                status = Fore.GREEN + 'Success' + Style.RESET_ALL if summary else Fore.YELLOW + 'No summary' + Style.RESET_ALL
+            except Exception as e:
+                status = Fore.RED + f'Error: {e}' + Style.RESET_ALL
+        else:
+            status = Fore.RED + f"Fetch failed: {page.get('error', 'Unknown error')}" + Style.RESET_ALL
+        summary_table.append([page.get('url', ''), status])
+    print(Fore.CYAN + '\nSummary of Results:' + Style.RESET_ALL)
+    print(tabulate(summary_table, headers=['URL', 'Status']))
 
     # Create a dict for fast lookup by URL
     existing_by_url = {a['url']: a for a in existing_articles if 'url' in a}
@@ -201,9 +240,12 @@ def main():
 
     # Save merged articles
     merged_articles = list(existing_by_url.values())
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(merged_articles, f, ensure_ascii=False, indent=2)
-    print(f'\nSaved {len(merged_articles)} articles to {output_file}')
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(merged_articles, f, ensure_ascii=False, indent=2)
+        print(Fore.GREEN + f'\nSaved {len(merged_articles)} articles to {output_file}' + Style.RESET_ALL)
+    except Exception as e:
+        print(Fore.RED + f'Error saving to {output_file}: {e}' + Style.RESET_ALL)
 
 if __name__ == '__main__':
     main() 
