@@ -18,3 +18,10 @@ def set_openai_api_key():
     if not api_key:
         raise ValueError('OPENAI_API_KEY not found in environment variables.')
     openai.api_key = api_key 
+
+# Get LLM model name from environment or use default
+def get_llm_model_name():
+    """
+    Returns the LLM model name from the environment variable LLM_MODEL_NAME, or 'gpt-4o-mini' if not set.
+    """
+    return os.getenv('LLM_MODEL_NAME', 'gpt-4o-mini') 

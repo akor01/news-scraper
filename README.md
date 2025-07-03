@@ -38,6 +38,8 @@ The project requires an OpenAI API key. You can provide it in two ways:
    - Create a `.env` file in your project root with the following content:
      ```
      OPENAI_API_KEY=your-openai-api-key-here
+     # (Optional) Set the LLM model name. Default is 'gpt-4o-mini'.
+     LLM_MODEL_NAME=gpt-4o-mini
      ```
    - Make sure to install `python-dotenv` if you want automatic loading, or manually load the `.env` in your shell before running scripts.
 
@@ -45,11 +47,21 @@ The project requires an OpenAI API key. You can provide it in two ways:
    - On Windows:
      ```
      set OPENAI_API_KEY=your-openai-api-key-here
+     set LLM_MODEL_NAME=gpt-4o-mini
      ```
    - On Unix/Mac:
      ```
      export OPENAI_API_KEY=your-openai-api-key-here
+     export LLM_MODEL_NAME=gpt-4o-mini
      ```
+
+## Model Selection
+
+By default, the project uses the `gpt-4o-mini` model for all LLM tasks. You can change the model by setting the `LLM_MODEL_NAME` environment variable in your `.env` file or your shell environment. For example, to use `gpt-4o` instead:
+
+```
+LLM_MODEL_NAME=gpt-4o-mini
+```
 
 ## Features
 - Scrape news articles from URLs

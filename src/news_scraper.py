@@ -1,16 +1,16 @@
 import argparse
-import os
-import requests
-from bs4 import BeautifulSoup
 import json
-from urllib.parse import urljoin
-from src.config import set_openai_api_key
+import os
+import re
+import requests
+
+from bs4 import BeautifulSoup
+from colorama import Fore, Style, init as colorama_init
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from tqdm import tqdm
-from colorama import Fore, Style, init as colorama_init
-from tabulate import tabulate
-import re
+
+from src.config import set_openai_api_key, get_llm_model_name
 from src.utils import load_json_file, save_json_file, print_colored, print_summary_table
 
 colorama_init(autoreset=True)
@@ -132,7 +132,7 @@ def summarize_and_identify_topics(article):
     if not content:
         return None, None
     try:
-        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.5)
+        llm = ChatOpenAI(model=get_llm_model_name(), temperature=0.5)
         # Summarization
         summary_prompt = ChatPromptTemplate.from_template(
             """

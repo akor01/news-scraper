@@ -1,12 +1,14 @@
+import argparse
 import json
 import os
-import argparse
-from langchain_openai import OpenAIEmbeddings
-from langchain_chroma import Chroma
-from langchain.schema import Document
-from src.config import set_openai_api_key
-from tqdm import tqdm
+
 from colorama import Fore, Style, init as colorama_init
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain.schema import Document
+from tqdm import tqdm
+
+from src.config import set_openai_api_key
 from src.utils import load_json_file, save_json_file, print_colored
 
 colorama_init(autoreset=True)
