@@ -11,6 +11,7 @@ from tqdm import tqdm
 from colorama import Fore, Style, init as colorama_init
 from tabulate import tabulate
 import re
+from src.utils import load_json_file, save_json_file, print_colored, print_summary_table
 
 colorama_init(autoreset=True)
 
@@ -176,7 +177,7 @@ def main():
     set_openai_api_key()
     urls = parse_input(args.input)
     if not urls:
-        print(Fore.RED + 'No valid URLs provided. Exiting.' + Style.RESET_ALL)
+        print_colored('No valid URLs provided. Exiting.', Fore.RED)
         return
     print(Fore.CYAN + 'Parsed URLs:' + Style.RESET_ALL)
     for url in urls:
@@ -184,15 +185,7 @@ def main():
 
     output_file = args.output
     # Load existing articles if the file exists
-    if os.path.exists(output_file):
-        try:
-            with open(output_file, 'r', encoding='utf-8') as f:
-                existing_articles = json.load(f)
-        except Exception as e:
-            print(Fore.RED + f'Error loading {output_file}: {e}. Starting with empty articles.' + Style.RESET_ALL)
-            existing_articles = []
-    else:
-        existing_articles = []
+    existing_articles = load_json_file(output_file, default=[])
 
     # Collect URLs already present
     existing_urls = {a['url'] for a in existing_articles if 'url' in a}
@@ -202,7 +195,7 @@ def main():
     else:
         new_urls = [url for url in urls if url not in existing_urls]
     if not new_urls:
-        print(Fore.YELLOW + f'All provided URLs are already present in {output_file}. Nothing to scrape.' + Style.RESET_ALL)
+        print_colored(f'All provided URLs are already present in {output_file}. Nothing to scrape.', Fore.YELLOW)
         return
     print(Fore.CYAN + 'New URLs to fetch:' + Style.RESET_ALL)
     for url in new_urls:
@@ -230,8 +223,8 @@ def main():
         else:
             status = Fore.RED + f"Fetch failed: {page.get('error', 'Unknown error')}" + Style.RESET_ALL
         summary_table.append([page.get('url', ''), status])
-    print(Fore.CYAN + '\nSummary of Results:' + Style.RESET_ALL)
-    print(tabulate(summary_table, headers=['URL', 'Status']))
+    print_colored('\nSummary of Results:', Fore.CYAN)
+    print_summary_table(summary_table, headers=['URL', 'Status'])
 
     # Create a dict for fast lookup by URL
     existing_by_url = {a['url']: a for a in existing_articles if 'url' in a}
@@ -240,12 +233,7 @@ def main():
 
     # Save merged articles
     merged_articles = list(existing_by_url.values())
-    try:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(merged_articles, f, ensure_ascii=False, indent=2)
-        print(Fore.GREEN + f'\nSaved {len(merged_articles)} articles to {output_file}' + Style.RESET_ALL)
-    except Exception as e:
-        print(Fore.RED + f'Error saving to {output_file}: {e}' + Style.RESET_ALL)
+    save_json_file(output_file, merged_articles)
 
 if __name__ == '__main__':
     main() 

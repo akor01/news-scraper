@@ -7,6 +7,7 @@ from langchain.schema import Document
 from src.config import set_openai_api_key
 from tqdm import tqdm
 from colorama import Fore, Style, init as colorama_init
+from src.utils import load_json_file, save_json_file, print_colored
 
 colorama_init(autoreset=True)
 
@@ -129,9 +130,9 @@ def main():
     set_openai_api_key()
     print(Fore.CYAN + f"\nUser Query: {args.query}" + Style.RESET_ALL)
     try:
-        articles = load_articles()
+        articles = load_json_file(ARTICLES_FILE, default=[])
     except Exception as e:
-        print(Fore.RED + f"Error loading articles: {e}" + Style.RESET_ALL)
+        print_colored(f"Error loading articles: {e}", Fore.RED)
         return
     print(Fore.CYAN + f"Loaded {len(articles)} articles." + Style.RESET_ALL)
     print(Fore.CYAN + "\nBuilding documents for embedding/search..." + Style.RESET_ALL)
@@ -159,36 +160,34 @@ def main():
     try:
         embeddings = OpenAIEmbeddings()
     except Exception as e:
-        print(Fore.RED + f"Error initializing OpenAIEmbeddings: {e}" + Style.RESET_ALL)
+        print_colored(f"Error initializing OpenAIEmbeddings: {e}", Fore.RED)
         return
     print(Fore.CYAN + "\nLoading or updating vector store..." + Style.RESET_ALL)
     try:
         vectorstore = build_or_load_vectorstore(docs, embeddings)
     except Exception as e:
-        print(Fore.RED + f"Error building/loading vector store: {e}" + Style.RESET_ALL)
+        print_colored(f"Error building/loading vector store: {e}", Fore.RED)
         return
     if not vectorstore:
-        print(Fore.RED + "Vector store could not be created or loaded." + Style.RESET_ALL)
+        print_colored("Vector store could not be created or loaded.", Fore.RED)
         return
     print(Fore.CYAN + f"\nPerforming semantic search (top {args.top_k}, threshold {args.threshold})..." + Style.RESET_ALL)
     results = []
-    scores_available = False
     try:
         if hasattr(vectorstore, 'similarity_search_with_score'):
             results_with_scores = vectorstore.similarity_search_with_score(args.query, k=args.top_k)
             # Chroma returns higher score = more similar (score in [0,1])
             filtered = [(doc, score) for doc, score in results_with_scores if score >= args.threshold]
             results = filtered
-            scores_available = True
         else:
             print(Fore.YELLOW + "Warning: similarity_search_with_score not available, falling back to similarity_search without threshold filtering." + Style.RESET_ALL)
             docs_only = vectorstore.similarity_search(args.query, k=args.top_k)
             results = [(doc, None) for doc in docs_only]
     except Exception as e:
-        print(Fore.RED + f"Error during semantic search: {e}" + Style.RESET_ALL)
+        print_colored(f"Error during semantic search: {e}", Fore.RED)
         return
     if not results:
-        print(Fore.YELLOW + "No results found above the threshold. Try a different query or lower the threshold." + Style.RESET_ALL)
+        print_colored("No results found above the threshold. Try a different query or lower the threshold.", Fore.YELLOW)
         return
     print(Fore.CYAN + f"\nTop Results (showing {len(results)} of {args.top_k} requested above threshold {args.threshold}):" + Style.RESET_ALL)
     for i, (doc, score) in enumerate(results):
@@ -203,11 +202,9 @@ def main():
         print('-' * 60)
     if args.output:
         try:
-            with open(args.output, 'w', encoding='utf-8') as f:
-                json.dump([doc.metadata for doc, _ in results], f, ensure_ascii=False, indent=2)
-            print(Fore.GREEN + f"\nResults saved to {args.output}" + Style.RESET_ALL)
+            save_json_file(args.output, [doc.metadata for doc, _ in results])
         except Exception as e:
-            print(Fore.RED + f"Error saving results to {args.output}: {e}" + Style.RESET_ALL)
+            print_colored(f"Error saving results to {args.output}: {e}", Fore.RED)
 
 if __name__ == '__main__':
     main() 

@@ -94,8 +94,8 @@ python -m src.semantic_search "climate change"
 python -m src.semantic_search "tennis" --top_k 10 --threshold 0.8
 python -m src.semantic_search "Wimbledon" --output search_results.json
 ```
-- `--top_k`: Number of results to return (default: 3)
-- `--threshold`: Similarity threshold (0-1, default: 0.75). Only results above this score are shown.
+- `--top_k`: Number of results to return (default: 1)
+- `--threshold`: Similarity threshold (0-1, default: 0.3). Only results above this score are shown.
 - `--output`: Save search results to a JSON file
 
 **Output:**
@@ -125,7 +125,7 @@ pytest
 
 ## Notes on Topics and Semantic Search
 - Topics are stored as a list in the article JSON, but for semantic search, all topics are still embedded as a single string along with the summary.
-- This means searching for a single topic may be less effective if the article has many topics. For best results, consider storing each topic as a separate document in the vector DB (see code comments for how to do this).
+- This means searching for a single topic may be less effective if the article has many topics. For best results, consider storing each topic as a separate document in the vector DB.
 
 ## Troubleshooting
 - **Missing API Key:** Ensure `OPENAI_API_KEY` is set in your environment or `.env` file.
